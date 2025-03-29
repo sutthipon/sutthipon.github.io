@@ -1,51 +1,191 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple HTML Page</title>
+    <title>English-Thai Vocabulary</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 50px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
         }
         button {
+            background: none;
+            border: 2px solid #ccc;
+            cursor: pointer;
             padding: 10px 20px;
             font-size: 16px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            border: none;
             border-radius: 5px;
+            transition: all 0.3s ease;
         }
+
+        /* ปรับแต่ง input ให้ใหญ่ขึ้นและสวยงาม */
+        input[type="text"] {
+            width: 300px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: #4CAF50; /* เปลี่ยนสี border เมื่อคลิก */
+            outline: none;
+        }
+
+        /* ปุ่มแก้ไขและลบ */
+        .edit-btn {
+            border-color: #4CAF50; /* สีเขียวสำหรับปุ่มแก้ไข */
+            color: #4CAF50;
+        }
+
+        .delete-btn {
+            border-color: #f44336; /* สีแดงสำหรับปุ่มลบ */
+            color: #f44336;
+        }
+
+        /* ปรับปรุงความสวยงามของปุ่ม */
         button:hover {
-            background-color: #0056b3;
+            opacity: 0.8;
+        }
+
+        /* ปรับแต่งข้อความ "กำลังโหลด" */
+        #loadingText {
+            font-size: 18px;
+            color: #ff9800;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>Welcome to My Simple Page</h1>
-        <p>This is a basic HTML page with a button.</p>
-        <button onclick="showMessage()">Click Me</button>
-        <p id="message"></p>
-    </div>
+    <h2>รายการคำศัพท์ภาษาอังกฤษ - ไทย</h2>
+    <input type="text" id="wordInput" placeholder="พิมพ์คำศัพท์..." onkeypress="handleKeyPress(event)">
+    <button onclick="addWord()">เพิ่มคำศัพท์</button>
+    <p id="loadingText" style="display:none;">กำลังโหลด...</p>
+    
+    <table id="vocabTable"></table>
 
     <script>
-        function showMessage() {
-            document.getElementById("message").innerText = "Hello! You clicked the button.";
+        const apiKey = 'AIzaSyD3Vo4IvGeB0Pqs3IoIy4jV5G1eldjTo2M';
+        let vocabulary = [];
+        
+        function loadFromLocal() {
+            const storedData = localStorage.getItem("vocabulary");
+            if (storedData) {
+                vocabulary = JSON.parse(storedData);
+                renderTable();
+            }
         }
-    </script>
 
+        function saveToLocal() {
+            localStorage.setItem("vocabulary", JSON.stringify(vocabulary));
+        }
+
+        function renderTable() {
+            const table = document.getElementById("vocabTable");
+            table.innerHTML = `<tr>
+                <th>ลำดับ</th>
+                <th>คำศัพท์</th>
+                <th>ฟัง</th>
+                <th>คำแปล</th>
+                <th>แก้ไข</th>
+                <th>ลบ</th>
+            </tr>`;
+            vocabulary.forEach((item, index) => {
+                table.innerHTML += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${item.word}</td>
+                    <td><button onclick="speak('${item.word}')">🔊</button></td>
+                    <td>${item.translation}</td>
+                    <td><button class="edit-btn" onclick="editWord(${index})">✏️</button></td>
+                    <td><button class="delete-btn" onclick="deleteWord(${index})">❌</button> </td>
+                </tr>`;
+            });
+        }
+
+        function speak(word) {
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = 'en-US';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function addWord() {
+            const input = document.getElementById("wordInput").value.trim();
+            if (input === "") return alert("กรุณากรอกคำศัพท์");
+            
+            document.getElementById("loadingText").style.display = "block";
+            const translation = await translateWord(input);
+            document.getElementById("loadingText").style.display = "none";
+            
+            const newWord = {
+                word: input,
+                translation: translation
+            };
+            
+            vocabulary.push(newWord);
+            renderTable();
+            saveToLocal();
+            document.getElementById("wordInput").value = "";
+        }
+        
+        async function translateWord(word) {
+            try {
+                const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        q: word,
+                        source: 'en',
+                        target: 'th',
+                        format: 'text'
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                return data.data.translations[0].translatedText;
+            } catch (error) {
+                console.error("Error fetching translation:", error);
+                return "(แปลไม่ได้)";
+            }
+        }
+
+        function deleteWord(index) {
+            if (confirm("คุณต้องการลบคำศัพท์นี้ใช่หรือไม่?")) {
+                vocabulary.splice(index, 1);
+                renderTable();
+                saveToLocal();
+            }
+        }
+
+        async function editWord(index) {
+            const newWord = prompt("แก้ไขคำศัพท์:", vocabulary[index].word);
+            if (newWord) {
+                document.getElementById("loadingText").style.display = "block";
+                const newTranslation = await translateWord(newWord);
+                document.getElementById("loadingText").style.display = "none";
+                
+                vocabulary[index].word = newWord;
+                vocabulary[index].translation = newTranslation;
+                renderTable();
+                saveToLocal();
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                addWord();
+            }
+        }
+
+        window.onload = loadFromLocal;
+    </script>
 </body>
 </html>
